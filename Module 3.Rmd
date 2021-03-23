@@ -1,0 +1,515 @@
+---
+title: "Module 3 Report"
+author: "440507019, 450598173, 470461147 & 480140940"
+date: 10 October 2018
+output:
+  html_document:
+    code_folding: hide
+    css: https://use.fontawesome.com/releases/v5.2.0/css/all.css
+    fig_caption: yes
+    number_sections: no
+    self_contained: yes
+    theme: flatly
+    toc: yes
+    toc_depth: 2
+    toc_float: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require("tidyverse")
+require("lubridate")
+require("kableExtra")
+```
+
+<style>
+h1.title {
+  font-size: 44px;
+}
+blockquote {
+    border-left:none;
+    font-size: 1em;
+    display: block;
+    margin-top: .25em;
+    margin-left: 20px;
+}
+.table{
+    margin-bottom:0px;
+}
+h1 {
+    color:	#e64626;
+    font-size: 32px;
+}
+h2 {
+    font-size: 22px;
+}
+h3 {
+    font-size: 21px;
+}
+h4 {
+    font-size: 17px;
+}
+.list-group-item.active, .list-group-item.active:hover, .list-group-item.active:focus{
+    background-color:#e64626;
+}
+h2, h3, h4, h5, h6 {
+    color: black;
+}
+h1, h2, h3{
+font-weight:bold;
+}
+a { 
+    color: #0148A4; 
+} 
+body { 
+    color: #424242; 
+}
+</style>
+
+# Executive Summary
+
+DATA 2002: Data Analytics- Learning from Data is an intermediate unit of study at the University of Sydney. The unit aims to equip students with knowledge and skills that will enable them to embrace data analytic challenges stemming from everyday problems. 
+
+This report investigates whether the data on the weight of the mice differ for transgenic and nontransgenic mice and if so, which fragment/ fragments of the DNA are the cause.
+
+We found significant statistical evidence that different DNA fragments affect different gender differently with 152F7 affect female mice's weight most and 285E6 affect male mice's weight the most.
+
+# Introduction
+
+DATA 2002: Data Analytics- Learning from Data is an intermediate unit of study at the University of Sydney. The unit aims to equip students with knowledge and skills that will enable them to embrace data analytic challenges stemming from everyday problems. 
+
+As part of semester 2 2018 assessment of the unit of study, students are required to analyze the laboratory data obtained from the Human Genome Center at the Lawrence Berkeley Laboratory (Nolan, 2000). 
+
+Down Syndrome is a congenital syndrome that occurs when a child inherits an extra chromosome 21 from his or her parents. The syndrome is associated with some degree of physical and mental retardation and is one of the most common congenital syndromes. The population of people with Down syndrome in Australia is now over 13,000 (Down Syndrome Australia, 2018).
+
+Scientists seek to identify the effectiveness of treatments to mitigate the syndrome, however testing on humans at a very early stage of the cure is unethical. This resulted in firstly trying to alter the DNA of mice to mimic the effect of Down Syndrome. However, as Down Syndrome is closely associated to weight gain, scientists seek to investigate the difference between the weights for transgenic and nontransgenic mice and if so, which fragment/ fragments of the DNA are the cause. This is not as trivial as it seems at first as there are potentially a lot of factors that might affect the weight of the mice such as the gender, cage, age, etc which are not of interest for the scientist but will affect the findings.
+
+# Data Background
+
+This data is obtained from 11 of Nolan and Speed (2000). The Human Genome Center at the Lawrence Berkeley Laboratory constructed a panel of transgenic mice, each containing one of the four fragments of cloned human chromosome 21.
+
+# Data Cleaning
+
+The variables in the dataset can be seen under *Appendix A: Data Dictionary*.
+
+The format of the data is a bit unusual and a bit of data cleansing is required for the ease of analysis.
+
+The variables tg and sex are not really integer variables. The data type in this data is adjusted for ease of analysis.
+
+All non-transgenic mice are pooled together to provide a better estimate of the variability in weight. This was done by creating 5 categories, one for each of the four possible DNA fragments and one for the absence of any trisomy.
+
+```{r tidy, warning=FALSE, message=FALSE}
+library(tidyverse)
+x = read_table("https://raw.githubusercontent.com/DATA2002/data/master/mouse.txt")
+
+x = x %>% mutate(
+  sex = if_else(sex == 1, "Male", "Female"),
+  DNA = case_when(DNA == 1 ~ "141G6",
+                  DNA == 2 ~ "152F7", 
+                  DNA == 3 ~ "230E8",
+                  DNA == 4 ~ "285E6"),
+  cage = factor(cage),
+  tg = if_else(tg == 1, "Transgenic", "Non-transgenic")
+)
+
+x = x %>% 
+  mutate(
+    DNAfragment = case_when(
+      tg == "Transgenic" ~ DNA,
+      TRUE ~ "No trisomy"
+    )
+  )
+
+# check that number within each subgroup is reasonable in size
+x %>% group_by(sex, tg, DNA) %>% count() %>% spread(key = DNA, value = n)
+x %>% group_by(tg, DNA) %>% count() %>% spread(key = DNA, value = n)
+
+# check the numbers match up
+x %>% count(DNAfragment)
+x %>% group_by(tg, DNA) %>% count()
+```
+
+# Relationships of Mice Variables (Transgenic, Gender and DNA) with Weight
+
+## Transgenic and Not Transgenic Mice
+
+Data visualization of transgenic and not transgenic mice with respect to their corresponding weights:
+```{r}
+ggplot(x, aes(y = weight)) + 
+  geom_boxplot() + 
+  theme_bw() + 
+  facet_grid( ~ tg)
+```
+
+From the box plot, we can see two variables range are similar. The interquartile range is close as well. Mouse with transgenic has a slightly higher median weight than non-transgenic.
+
+
+## Male and Female Mice
+
+Data visualization of the gender of mice grouped by whether they are transgenic or not with respect to their corresponding weights:
+```{r}
+ggplot(x, aes(y = weight)) + 
+  geom_boxplot() + 
+  theme_bw() + 
+  facet_grid(sex ~ tg)
+```
+
+The comparison of female transgenic and non-transgenic mouse weight shows that the data range and median are really close. Male transgenic and non-transgenic mouse's weight are similar as well.
+
+Data visualization of gender of mice with respect to their corresponding weights:
+```{r}
+ggplot(x, aes(y = weight)) + 
+  geom_boxplot() + 
+  theme_bw() + 
+  facet_grid(tg ~ sex)
+```
+
+From the plot, the mouse's weight is heavier than female mouse under transgenic and non-transgenic conditions.
+
+## DNA Fragment 
+
+Data visualization of DNA fragment with respect to their corresponding weights:
+```{r}
+ggplot(x, aes(y = weight)) + 
+  geom_boxplot() + 
+  theme_bw() + 
+  facet_grid( ~ DNA)
+```
+
+The weights between the four fragments of DNA are similar in range with 285E6's median weight slightly lower and 152F7 has the highest median and the interquartile range.
+
+# Summary Statistics for Transgenic, Gender and DNA 
+
+Summary statistics for transgenic and non-transgenic with weight:
+```{r}
+x %>%
+  group_by(tg) %>%
+  summarise(Count = n(), Mean = mean(weight), Variance = var(weight))
+```
+
+Summary statistics for gender with weight:
+```{r}
+x %>%
+  group_by(sex) %>%
+  summarise(count = n(), mean = mean(weight), variance = var(weight))
+```
+
+Summary statistics for transgenic and non-transgenic and gender with weight:
+```{r}
+x %>%
+  group_by(sex, tg) %>%
+  summarise(count = n(), mean = mean(weight), variance = var(weight))
+```
+
+Summary statistics for transgenic and non-transgenic and gender and DNA fragments with weight:
+```{r}
+x %>%
+  group_by(DNA, sex) %>%
+  summarise(count = n(), mean = mean(weight), variance = var(weight))
+```
+
+# Is there any evidence that DNA fragment affects the weight of the mice? 
+
+## DNA Fragments with Weight
+
+Checking for normality and variance assumption
+
+```{r}
+# anova test
+x %>% count(DNAfragment)
+weight_anova=aov(weight ~ DNAfragment, data = x)
+summary(weight_anova)
+
+# check the assumption
+library(ggplot2)
+library(ggfortify)
+autoplot(weight_anova,which=c(1,2))
+```
+
+As the data almost has a perfectly horizontal line, the same variance assumption is valid. The data falls very close to the normal qqline thus, the normality assumption is valid and an ANOVA test can be performed.
+
+Based on the background reading, the expression of the inserted DNA does not always occur, so we make a pool of inserted DNA fragment, and all of the non-transgenic are allocated into the no trisomy group.
+
+```{r}
+# plot the weight ~ DNAfragment (pooling)
+ggplot(x, aes(sample = weight)) +
+  geom_qq() + geom_qq_line() +
+  facet_wrap(~ DNAfragment) +
+  theme_classic(base_size = 20)
+ggplot(x, aes(x = DNAfragment, y = weight)) +
+  geom_boxplot() + theme_classic(base_size = 20) +coord_flip()
+```
+
+**Hypothesis**
+
+$H_0: \mu_1 = \mu_2 = \mu_3 = \mu_4$
+
+$H_1$: at least one $\mu_i \neq \mu_j$ for $i \neq j$
+
+**Assumption**
+Each group is normally distributed with equal variance, each group is independent
+
+Test statistic: T = Treatment mean square/ Residual mean square. Under H0, T ~ F(g-1, N-g)
+
+Observed test statistic: t0 = 127.5/ 14.6 = 8.736
+
+P value: P = 7.82e-07
+
+**Conclusion**
+
+Since p-value is smaller than 0.05, we reject the null hypothesis. Therefore, at least two of the group means are not equal.
+
+
+## DNA Fragments (Male) with Weight
+
+Checking for normality and variance assumption
+```{r}
+a2 = aov(weight ~ DNA, data = filter(x, sex == "Male"))
+summary(a2)
+plot(a2, which = 1: 2)
+```
+
+As the data almost has a perfectly horizontal line, the same variance assumption is valid. The data falls very close to the normal qqline thus, the normality assumption is valid and an ANOVA test can be performed.
+
+### ANOVA Test
+This report would like to explore the relationship of male with different DNA fragments with weight. The null hypothesis is that the weight of mice are same for different DNA fragments for male while the alternative hypothesis is that the weight of mice are different between different DNA fragments for male.
+
+**Hypothesis**
+
+$H_0: \mu_1 = \mu_2 = \mu_3 = \mu_4$
+
+$H_1$: at least one $\mu_i \neq \mu_j$ for $i \neq j$
+
+**Assumptions**
+
+Observations are independent within each of the 4 samples. Each of the 4 populations have the same variances, $\sigma_1^2 = \sigma_2^2 = \sigma_3^2 = \sigma_4^2 = \sigma$. Each of the 4 populations are normally distributed.
+
+**Test statistic**
+
+$T = \frac{Treatment Mean Sq}{Residual Mean Sq}.$ Under $H_0$, T ~ $F_{{g-1},{N-g}}$ where g = 4 is the number of groups.
+
+**Observed Test statistic**
+
+$t_0 = \frac{84.52}{7.52} = 11.2.$
+
+**p-value**
+
+P(T>11.2) = 5.8 e-7
+
+**Conclusion**
+
+As the p-value is smaller than 0.05, we reject the null hypothesis as the data provides significant evidence to support $H_1$. This suggests that the weights of male mice are different for different DNA fragments.
+
+
+
+## DNA Fragments (Female) with Weight
+
+Checking for normality and variance assumption
+```{r}
+a3 = aov(weight ~ DNA, data = filter(x, sex == "Female"))
+summary(a3)
+plot(a3, which = 1: 2)
+```
+
+As the residual plot shows a combination of increasing and decreasing trend, the same variance assumption is not valid. The data falls very close to the normal qqline thus, the normality assumption is valid and an ANOVA test cannot be performed. Therefore, a Welch test is performed instead.
+
+### Welch Test
+This report would like to explore the relationship of female with different DNA fragments with weight. The null hypothesis is that the weight of mice are same for different DNA fragments for female while the alternative hypothesis is that the weight of mice are different between different DNA fragments for female.
+
+```{r}
+female = filter(x, sex == "Female")
+pairwise.t.test(female$weight, female$DNA, p.adjust.method = "bonferroni", pool.sd = FALSE)
+```
+
+**Hypothesis**
+
+$H_0: \mu_1 = \mu_2 = \mu_3 = \mu_4$
+
+$H_1$: at least one $\mu_i \neq \mu_j$ for $i \neq j$
+
+**Conclusion**
+
+As the p-value is smaller than 0.05, we reject the null hypothesis as the data provides significant evidence to support $H_1$. This suggests that the weights of female mice are different for different DNA fragments.
+
+
+# Is there any evidence that DNA fragment affects the weight of different gender mice differently (one-way ANOVA model)? 
+
+From above, we know that the mean weights of male and female mice are different. We also know that the effect of DNA fragment affects differently among the different gender. 
+
+This section seeks to explore the significance and if a particular DNA fragment affects male mice more than its counterpart and to find the greatest difference with its corresponding gender non-transgenic mice.
+
+Using the multiple comparisons to find out the significant groups. We use the emmeans package and make the adjustment of bonferroni and scheff. 
+
+```{r warning=FALSE, message=FALSE}
+# multiple contrasts comparisions
+library(emmeans)
+weight_em=emmeans(weight_anova, ~ DNAfragment)
+confint(pairs(weight_em, adjust = "bonferroni")) %>% plot() +
+  theme_classic(base_size = 20) + geom_vline(xintercept = 0)
+confint(pairs(weight_em, adjust = "scheff")) %>% plot() +
+  theme_classic(base_size = 20) + geom_vline(xintercept = 0)
+test(pairs(weight_em, adjust = "bonferroni"))
+test(pairs(weight_em, adjust = "scheff"))
+```
+
+Since the weight of male mice and female mice are different, we do the tests separately in order to reduce the effects of the sex. 
+
+Visual representation of the DNA fragments of different sex with weight:
+```{r}
+# consider the sex
+ggplot(x, aes(x=DNA, y=weight, colour=DNA)) +
+  geom_boxplot() + theme_classic(base_size = 20) +
+  facet_wrap( ~ sex)
+x %>% group_by(sex,DNA) %>% count()
+```
+
+Visual representation of the difference between the DNA fragments for male mice
+```{r}
+x_m=filter(x, sex=='Male')
+weight_m_anova=aov(weight ~ DNAfragment, data = x_m)
+summary(weight_m_anova)
+weight_m_em=emmeans(weight_m_anova, ~DNAfragment)
+confint(pairs(weight_m_em,adjust = 'bonferroni')) %>% plot() + geom_vline(xintercept = 0)
+contrast(weight_m_em, method = 'pairwise', adjust = 'scheff')
+```
+
+Using contrasts to find out the significant groups. The group 285E6 has the significant difference with No trisomy, 152F7 and 141G6 groups for male mice.
+
+Visual representation of the difference between the DNA fragments for female mice
+```{r}
+x_f=filter(x, sex=='Female')
+weight_f_anova=aov(weight ~ DNAfragment, data = x_f)
+summary(weight_f_anova)
+weight_f_em=emmeans(weight_f_anova, ~ DNAfragment)
+confint(pairs(weight_f_em, adjust = 'bonferroni')) %>% plot() + geom_vline(xintercept = 0)
+contrast(weight_f_em, method = 'pairwise', adjust = 'scheff')
+```
+
+In the female mice test, the group 152F7 has significant differences with the groups No trisomy, 285E6 and 141G6.
+
+**Conclusion**
+
+It is evident that different DNA fragments affect different gender differently and that the 285E6 DNA resulted in the significant weight differences in the male mice group while the 152F7 DNA resulted in significant weight differences among female mice.
+
+
+# Is there any evidence that DNA fragment affects the weight of different gender mice differently (two-way ANOVA model)? 
+
+This section explores the interaction effects between sex and DNA fragment.
+```{r 3c}
+a2 = aov(weight ~ DNAfragment * sex, data = x)
+library(emmeans)
+emmip(a2, DNAfragment ~ sex) + theme_classic(base_size = 16)
+```
+```{r}
+emmip(a2, sex ~ DNAfragment) + theme_classic(base_size = 16)
+```
+
+From the interaction plots above, we can infer that there is an interaction between the sex and the DNAfragment of the mice. This is shown from the intersections between the traces above. We can see that the only level from DNAfragment that shows a strong effect on gender is the 141G6 DNA.
+
+```{r}
+# ANOVA
+anova(a2)
+```
+
+As seen from the above two-way ANOVA, we can conclude that the sex and DNAfragment main effects are significant (there is a significant difference between the levels of each treatment group).
+
+# Post hoc Comparison
+
+The pairwise difference t-statistics
+```{r warning=FALSE, message=FALSE}
+# pairwise difference t-statistics
+s_emm = contrast(emmeans(a2, ~sex), method = "pairwise", adjust = "scheffe")
+d_emm = contrast(emmeans(a2, ~DNAfragment), method = "pairwise", adjust = "scheffe")
+
+sd_emm = update(s_emm + d_emm)
+sd_emm
+```
+
+Plot of pairwise difference with 95% confidence intervals
+```{r}
+plot(sd_emm) + theme_classic(base_size = 16) + geom_vline(xintercept = 0) + labs(x = "Estimated pairwise mean difference", caption = "95% confidence intervals adjusted for multiple testing using Scheffe method")
+```
+
+For sex, the differences between female and male are highly significant where the weight of male mice is higher than the weight of female mice significantly.
+
+For DNA, the differences between 141G6-152F7, 152F7-285E6, 152F7-No Trisomy and 285E6-No Trisomy are highly significant while the others are not. 
+
+This further justifies the conclusion arrived from **Is there any evidence that DNA fragment affects the weight of different gender mice differently (one-way ANOVA model)?** that the 152F7 and 285E6 DNA fragments have a significant effect on weight. 
+
+
+# Summary
+
+This report initially started to investigate which DNA fragment affects the weight gain for the mice. 
+
+Identifying the DNA fragment which caused the weight gain for mice might still only be the early stages of the research. There is still a long way to go before the knowledge can be applied to humans. 
+
+Our findings suggest that two different DNA fragment affects each gender differently which might seem counter-intuitive as it was initially thought that the weight is affected by only one DNA fragment.
+
+Breakthroughs in genetics as this report present us with a promise and a predicament. It is a wildly debated issue and arguments for and against can be found under **Appendix B: The Case of Gene Editing**.
+
+# Appendix A: Data Dictionary
+
+| Variable name | type | definition | 
+|------------ | ------- | ---------------------------------------|
+| DNA | integer | Fragment of chromosome 21 integrated in parent mouse where 1 = 141G6, 2 = 152F7, 3 = 230E8, 4 = 285E6. | 
+| line | character | Family line | 
+| tg | integer | Whether the mouse contains the extra DNA and is therefore transgenic (1) or not transgenic (0) |
+| sex | integer | Mouse gender 1 = male, 0 = female. | 
+| age | integer | Age of mouse (in days) at the time of weighing. | 
+| weight | integer | Weight of mouse in grams, to the nearest tenth of a gram. | 
+| cage | integer | Number of the cage in which the mouse lived. | 
+
+# Appendix B: The Case of Gene Editing
+
+Genetic editing has the potential to save millions of people suffering from genetic diseases such as Down syndrome, etc. Gene editing could be applied to more than 10,000 conditions from sickle cell anemia, cystic fibrosis or some cases of early-onset Alzheimer’s (Belluck, 2017). It also has the potential to save people dying from malaria by inserting an artificial gene into mosquitos thus making the mosquitos sterile and unable to spread malaria (Last Week Tonight, 2018). 
+
+Human trials are very rare and although results have been promising on plants and animals. However, as with a lot of scientific advancement, it is always met with cynicism. A case for this would be the test tube babies when it first came out. The potential risks and benefits of the method were wildy debated. As time progresses, people are now taking it for granted. We are bombarded by Hollywood with what currently seemed farfetched about the dystopian future gene editing would bring from movies such as Jurassic Park, Planet of the Apes and etc. Arguments against gene editing came from a lot of sides from ethical and moral, religious and to some extent scientific point of views. 
+
+Falling into the wrong hands, gene editing as with other technologies could create unwanted consequences. Science is like a double-edged sword with the potential to save or eradicate life. Gene editing may mess with the ecosystem with negative consequences. An example of messing with the delicate ecosystem can be found in Australia when in the 1930s, about 100 cane toads are introduced to control the cane beetles. The toad not only failed to control the beetles’ population, but they multiplied to hundreds of millions of cane toads instead and create a havoc (Last Week Tonight, 2018). 
+
+A cliché religious claim against this would be ‘are we playing god?’. These raises moral questions of potentially gene editing not only could fight diseases but be used as human enhancement. What constitutes as a disease may not be viewed similarly across the community. For many of the deaf community, deafness is not a disease and for many of the people suffering from dwarfism, the people with dwarfism themselves do not think they are sick or suffering but as a unique identity (Explained, 2018). The idea that we think people are suffering from these ‘diseases’ suggests that are we naïve or ignorant to want everyone to be similar and hence, raises another point of the meaning of being human. What does it mean to be human or to be unique? 
+
+There is a debate in the community of what the person with the ‘disease’ perceived their ‘disease’ as an identity as what makes them unique with other parts of the society who feels the traits to be a ‘flaw’ that needs to be corrected. Are we going to deprive humans of their own identity? This brings us to a famous case a few years ago when in 2002, a deaf lesbian couple in the US create a child who is deaf like them. The story goes as the deaf lesbian couple deliberately tried to conceive a child with the help of a sperm donor who has a history of deafness for five generation in his family (Teather, 2002). 
+
+We cannot ignore the fact that people with Down syndrome cannot be successful. Angela Bachiller, a person with Down syndrome is a Spanish city councilor for Valladolid and was sworn in on 29 July 2013 (Flanders, 2014).
+
+![Angela Bachiller](/Users/edbertfernando/Downloads/hqdefault.jpg)
+
+Pablo Pineda is also a person with Down syndrome is a writer, speaker, and actor. He also earned a bachelor’s degree in educational psychology (Flanders, 2014). The list goes on for successful people with Down syndrome.
+
+![Pablo Pineda](/Users/edbertfernando/Downloads/440px-Pinedap.jpg)
+
+"There is something appealing, even intoxicating, about a vision of human freedom unfettered by the given. It may even be the case that the allure of that vision played a part in summoning the genomic age into being. It is often assumed that the powers of enhancement we now possess arose as an inadvertent by-product of biomedical advancement-the genetic revolution came, so to speak, to cure diseases, and stayed to tempt us with the prospect of enhancing our performance, designing our children, and perfecting our nature. That may have the story backward. It is more plausible to view genetic engineering as the ultimate expression of our resolve to see ourselves astride the world, the masters of our nature. But that promise of mastery is flawed. It threatens to banish our appreciation of life as a gift and to leave us with nothing to affirm or behold outside our own will" (Sandel, 2004).
+
+
+
+
+# References
+
+Belluck, Pam (2017). In Breakthrough, Scientists Edit a Dangerous Mutation From Genes in Human Embryos. New York Times. Obtained from: https://www.nytimes.com/2017/08/02/science/gene-editing-human-embryos.html
+
+Down Syndrome Australia (2018). Obtained from: https://www.downsyndrome.org.au
+
+Flanders, Nancy (2014). 9 Successful People With Down Syndrome Who Prove Life is Worth Living. Obtained from: https://www.lifenews.com/2014/11/10/9-successful-people-with-down-syndrome-who-prove-life-is-worth-living/
+
+Hadley Wickham (2018). forcats: Tools for Working with Categorical Variables (Factors). R package  version 0.3.0. https://CRAN.R-project.org/package=forcats
+
+Hadley Wickham (2018). stringr: Simple, Consistent Wrappers for Common String Operations. R package version 1.3.1. https://CRAN.R-project.org/package=stringr
+
+HBO. (2018). Last Week Tonight by John Oliver [TV programme]. Gene Editing
+
+Main Features - Height and weight. (2013, June 7). Retrieved September 10, 2018, from http://www.abs.gov.au/ausstats/abs@.nsf/lookup/4338.0main features212011-13
+
+Nolan, D. and Speed, T. (2000). Stat Labs: Mathematical Statistics through Applications. Springer Verlag.
+
+Posner, Joe (2018). Explained [TV programme]. Designer DNA
+
+R Core Team (2018). R: A language and environment for statistical computing. R Foundation for Statistical Computing, Vienna, Austria. URL https://www.R-project.org/.
+
+Sandel, Michael J. (2004). The Case Against Perfection. Atlantic Monthly.
+
+Teather D. Deaf baby designed by deaf lesbian couple. The Age 2002 Apr 9: news section: 3.
+
+Yihui Xie (2018). knitr: A General-Purpose Package for Dynamic Report Generation in R. R package version 1.20.
+
+Yihui Xie (2018). DT: A Wrapper of the JavaScript Library 'DataTables'. R package version 0.4.  https://CRAN.R-project.org/package=DT

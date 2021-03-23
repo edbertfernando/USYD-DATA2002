@@ -1,0 +1,900 @@
+---
+title: "Module 2 Report"
+author: "440507019, 450598173, 470461147, 480140940"
+date: 11 September 2018
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+DATA 2002: Data Analytics- Learning from Data is an intermediate unit of study at the University of Sydney. The unit aims to equip students with knowledge and skills that will enable them to embrace data analytic challenges stemming from everyday problems. 
+
+As part of semester 2 2018 assessment of the unit of study, students are required to analyse the survey results done voluntarily by the students enrolled in DATA 2002 class of 2018. This report will discuss the set of questions given by Dr. Garth Tarr, lecturer of the unit and some questions that came from the students who wrote this report related to the survey data.
+
+## Data Import
+A survey is done anonymously by DATA 2002 class of 2018 students willing to participate (Tarr, 2018). Out of the entire class of 132 students, 82 of those decided to participate and an overview of the responses can be seen as follow:
+```{r}
+survey = readr::read_csv("DATA2002 class survey (Responses) - Form responses 1.csv")
+```
+
+```{r}
+dplyr::glimpse(survey)
+```
+
+```{r}
+# size of data
+dim(survey)
+
+# column names
+colnames(survey)
+```
+
+Changing the column names of old data set to new names for cleaned data set:
+```{r}
+# Change column names
+old_names = colnames(survey)
+new_names = c("timestamp", "id", "gender", "postcode", "intro_stat", "clubs", "study_time", "social_media", "siblings", "pet", "live_with_parents", "exercise_time", "eye_colour", "work_time", "fav_season", "shoe_size", "height")
+colnames(survey) = new_names
+names(new_names) = old_names
+new_names
+```
+
+Quick look at then data:
+```{r}
+dplyr::glimpse(survey)
+```
+
+### Eye Colour
+
+Take a look at eye colour column in the data:
+```{r, warning=FALSE, error=FALSE}
+library("tidyverse")
+table(survey$eye_colour)
+```
+
+Change the responses to eye colour to lowercase letters.
+```{r}
+survey$eye_colour = tolower(survey$eye_colour)
+survey$eye_colour
+```
+
+Quick look at the counts for each eye colour:
+```{r}
+table(survey$eye_colour)
+survey$eye_colour = forcats::fct_lump(survey$eye_colour, n = 6)
+```
+
+Table for eye colour for top 5 eye colours and lumping the rest under other.
+```{r}
+table(survey$eye_colour)
+plot(table(survey$eye_colour))
+```
+
+Plot of the eye colour of the respondents:
+```{r}
+ggplot(survey, aes(x = eye_colour)) + 
+  geom_bar(fill = c("black","blue","brown2","brown4",
+                    "green3","darkgoldenrod3","red")) + 
+  labs(title = names(new_names[new_names == "eye_colour"]),
+       y = "Count", x = "Eye colour") + 
+  theme_linedraw() + coord_flip()
+```
+
+This 'other' category was paid particular attention for consideration of discarding the data as explained in later section under **Deleting nonsensical data**.
+
+### Gender
+
+Take a look at gender column in the data:
+```{r}
+survey = survey %>% 
+  dplyr::mutate(gender = toupper(gender), 
+                gender = substr(gender, 
+    start = 1, stop = 1), 
+    gender = forcats::fct_lump(gender, n = 2))
+
+table(survey$gender)
+```
+
+Plot of gender of respondents:
+```{r}
+plot(survey$gender)
+```
+
+This other category was paid particular attention to for as explained in later section under **Deleting nonsensical data**.
+
+### Height
+
+Take a look at the height column in the data:
+```{r}
+p1 = ggplot(survey, aes(x = height)) + 
+  geom_histogram() + 
+  theme_linedraw() + 
+  labs(title = names(new_names[new_names == "height"]),
+       y = "Count", x = "Height")
+```
+
+```{r}
+sort(survey$height)[1:10]
+```
+
+```{r}
+sort(survey$height, decreasing = TRUE) [1:10]
+```
+
+```{r}
+survey = survey %>% mutate(
+  height = case_when(
+    height < 3 ~ height * 100,
+    height < 10 ~ height * 30.48,
+    height > 250 ~ NA_real_,
+    TRUE ~ height)
+)
+```
+
+```{r}
+ggplot(survey, aes(y = height, x = gender)) + 
+  geom_boxplot() + 
+  theme_linedraw() + 
+    labs(title = names(new_names[new_names == "height"]),
+       x = "Gender", y = "Height (cm)")
+```
+
+There is an outlier for the female category and two outliers for the male category. 
+
+## Deleting nonsensical data
+The criteria used for deleting data that may be considered nonsensical responses is by looking at the cleaned data and look at the blank cells and 'other', 'NA'. This report follows the guidelines presented by Thomas C. Redman in his article: Can Your Data Be Trusted? published by Harvard Business Review (Redman, 2017) for data cleaning.
+
+If a row contains at least 2 of these, it is removed unless it is deemed justified (This was done by looking at the particular response that generate 'other' or NA. For example, on eye colour column, 'any colour' is a valid response and 'grey' is placed under 'other', while 'Better than Obama's' is not a valid response and is also placed under 'other').
+
+For any at least 2 invalid responses, that particular is removed for the purpose of this report. This report identified 4 rows/ responses that are not thoroughly thought responses and including them defeat the purpose of an objective analysis of the report. The 4 deleted rows are as follows with justification:
+
+The removal of the row with identifier 'new york slice' is with justifications as follow: 
+
+For the gender section, 'new york slice' puts PS4 controller. This obviously is an absurd answer as we know the only option is either male or female. The postcode is left blank. These two reasons justified the elimination of the row.
+
+The row with identifier 'Jesus' is removed and is justified as follow:
+
+For the gender section, 'Jesus' puts Apache attack helicopter. This obviously is an absurd answer as we know the only option is either male or female. For the postcode section, if one does not pay attention, one might not realize something unusual about it however, a closer inspection suggest that the postcode 3022 is in fact in Melbourne. Logically, it is very unlikely for someone to go to university in Sydney whilst residing in Melbourne. For the number of siblings, the respondent answered 45. This is an unusual number and quoting 'Wikipedia' as a source, the number provided is unbelievable as with such number of siblings, it will go unnoticed especially with the advancement of the internet. These are the reasons for the removal of the row.
+
+The row with the identifier 'annie' is removed due to amount of blank responses the respondent has. The respondent did not provide a response for 'postcode', 'preferred social media' and 'the number of siblings'.
+
+The last row to be removed has the identifier 'Donald J Trump'. The responses are nonsensical with the context of the questions asked with firstly, the postcode provided is not in Australia. Second, the gender column which is supposed to be filled with either male or female was filled with 'President of the United States'. The eye colour is supposed to be answered with a colour but instead 'Better than Obama'. These are just a few of the reasons for the removal of the data.
+
+4 rows are removed. 
+```{r}
+survey <- survey[-c(6, 57, 61, 62), ]
+```
+
+## Cleaned Data
+
+Cleaned data is saved to a new file name as survey_cleaned1.csv
+```{r}
+readr::write_csv(survey, "survey_cleaned1.csv")
+```
+
+As a result of the data cleaning, the recorded observations become 78.
+
+The new survey for DATA 2002 class of 2018 students willing to participate. Out of the entire cohort, from 82 students responses, the data is trimmed to 78 responses:
+```{r}
+new_survey = readr::read_csv("survey_cleaned1.csv")
+```
+
+```{r}
+dplyr::glimpse(new_survey)
+```
+
+```{r}
+# size of data
+dim(new_survey)
+
+# column names
+colnames(new_survey)
+```
+
+## 1. Is this a random sample of DATA 2002 students?
+
+Taking a look at the hour of when the survey was done by trimming the timestamp to only the date and the hour:
+
+```{r}
+Hour_Edit <- new_survey$timestamp
+Hour_Edit1 <- strtrim(Hour_Edit, 13)
+```
+
+Bar Plot of Hour of survey done:
+```{r}
+counts <- table(Hour_Edit1)
+barplot(counts, main="Hour of Survey Done", xlab="Number of Respondents at Hour")
+```
+
+From the plot, there is a peak on 20/08/2018 at 15.XX pm. This is on Monday and the peak happens to be in the hour the members of this report took the survey. The large number of respondents at the hour is due to our substitute tutor on that day told the whole tutorial group to fill out the survey right during the tutorial hour.
+
+With these reasons, it can be concluded that the survey is not a random sample of DATA 2002 as a lot of the respondents came from 1 tutorial group/ class which is on Monday 3pm class.
+
+## 2. What are the potential biases in this data generation?
+
+Taking a look at the gender of the respondent, for a random sample, the proportion of male and female must be the same:
+
+```{r}
+new_survey = new_survey %>% 
+  dplyr::mutate(gender = toupper(gender), 
+                gender = substr(gender, 
+    start = 1, stop = 1), 
+    gender = forcats::fct_lump(gender, n = 2))
+
+table(new_survey$gender)
+plot(new_survey$gender)
+```
+
+From the plot, it is evident that there is a higher proportion of male than female. The proportion of male to male and female, the resulting value is 56.6%. 
+
+An information obtained from Dr. Garth Tarr, the number of male enrolled in DATA 2002 is 72 while the number of female enrolled is 60. Taking the proportion of male to male and female, the resulting value is 54.5%. 
+
+Visual comparison of survey's gender proportion and actual class' gender proportion:
+
+```{r}
+gender = matrix(c(72,60,43,33), nrow=2)
+colnames(gender) = c("Actual class", "Survey")
+rownames(gender) = c("Male", "Female")
+gender
+```
+
+```{r}
+y1 = gender %>% as.data.frame() %>% 
+  tibble::rownames_to_column(var = "viewing") %>% 
+  tidyr::gather(key = gender, value = count, -viewing)
+p_base = ggplot(y1, aes(x = gender, y = count, fill = viewing)) + 
+  theme_bw(base_size = 12) + 
+  scale_fill_brewer(palette = "Set1") + 
+  labs(fill = "", x = "Actual and Survey") +
+  theme(legend.position = "top")
+p1 = p_base + 
+  geom_bar(stat = "identity", position = "fill") + 
+  labs(y = "Count") 
+p1
+```
+
+The gender proportion of the survey data is very close to the actual gender proportion of the class however, it is slightly higher.
+
+A potential bias of the responses for the data could skew more in men's favour and may not be an accurate representation of DATA 2002 students as a whole.
+
+The survey is done voluntarily. A potential issue could arise from this and is a well-known issue in the realm of statistics called the volunteer bias (Meier, 1977). This resulted in data being similar as respondents will have similar profile.
+
+## 3. Which variables are most likely to be subjected to this bias?
+
+The variables which are most likely affected by the gender bias are the shoe size and height. This is shown from a study by Karen J Mickle et al (Foot shape of older people: implications for shoe design). A graph from the study is as follow to show the difference between gender and shoe size in the US:
+
+![Graph of distribution of shoe size and gender](/Users/edbertfernando/Downloads/Shoe.png)
+
+This is an accurate representation of the world as there exist similar trend across the world. From the graph above obtained from Karen J Mickle et al's work, it is shown that men have larger shoe size.
+
+As body parts are usually proportional, height is proportional to shoe size (fact learned from elementary biology lesson). This means the shoe size and height columns potentially affected by the skewness towards the male gender. 
+
+Further investigation of the dependency of gender and height can be found under **4. Is there any evidence that there is difference in height between males and females?**.
+
+## 4. Is there any evidence that there is difference in height between males and females?
+
+For data that do not fall under male or female for gender column are omitted for the test.
+```{r}
+# Create two new columns with male heights and female heights
+height_1=new_survey[c(survey$gender=='M'),]$height
+height_2=new_survey[survey$gender=='F',]$height
+height_m=na.omit(height_1)
+height_f=na.omit(height_2)
+height_all=na.omit(survey$height)
+dat=data.frame(
+  height=c(height_f,height_m),
+  gender=c(rep('F',31),
+           rep('M',42))
+)
+```
+
+Table for the heights for male and female:
+```{r}
+# formulate the dat table
+dat=dat %>% mutate(rank=rank(height))
+dat
+```
+
+This report would like to explore the relationship of gender with height and if the respondents for DATA 2002 survey share similar trend to the study done by Karen J Mickle et al. This is done through a hypothesis testing as follow:
+
+Hypothesis: 
+
+H0: the mean of height of female is equal to the mean of the height of male.
+
+H1: the means of height of female and male are not equal.
+
+Assumption: height_f and height_m are independent and follow the same type of distribution, differing only by the shift.
+
+Plot of density and boxplot of gender vs height:
+```{r}
+# the density and the boxplot
+ggplot(dat,aes(x=gender,y=height))+
+  geom_boxplot()
+ggplot(dat,aes(x=height,fill=gender))+
+  geom_density(alpha=0.5)
+```
+
+From the graph above, there is a larger spread for male than female and the peak for male is shifted to right as compared to its counterpart.
+
+Test statistic: W is equal to the sum of the ranks of height in Female. Under H0, W ~ WRS(31,42), the Wilcoxon rank sum test with sizes 31 and 42.
+
+```{r}
+# test
+n1=length(height_f)
+n2=length(height_m)
+N=n1+n2
+w=sum(dat$rank[dat$gender=='F'])
+e=n1*(N+1)/2
+variance=(sum(dat$rank^2)-N*(N+1)^2/4)*n1*n2/(N*(N-1))
+t=(w-e)/sqrt(variance)
+pval=2*pnorm(t)
+c(w,t,pval)
+
+# wilcox test
+wilcox.test(height~gender,data=dat, correct=FALSE)
+```
+
+Observed test statistic: W = 619
+
+p_value: $2*P(W \geq 619) = 3.65e-09$. We use the normal approximation to get the p value. Under H1, we need the two sides of the normal distribution.
+
+It can be concluded that since the p value is less than 0.05, we there is strong evidence against H0. Therefore, there is difference of the height in male and female. This shows that the respondents of DATA 2002 survey do indeed share similarities with the study done by Karen J Mickle et al.
+
+## 5. Is there any evidence that the weekly exercise time of students who participate in more than 3 university clubs is different to those who don't?
+
+This report would like to explore the relationship of weekly exercise time with having more than 3 university clubs. This is done through a hypothesis testing as follow:
+
+Hypothesis: 
+
+H0: the mean of exercise time of students with more than 3 university clubs is equal to the mean of exercise time of students with less than 3 university clubs.
+
+H1: the means of exercise time of students with more than 3 university clubs is not equal to the mean of exercise time of students with less than 3 university clubs.
+
+Sort values to check outlines, 168 is the outstanding value.
+```{r}
+sort(new_survey$exercise_time, decreasing = TRUE)[1: 10]
+```
+
+Create two new values, exercise 1 and exercise 2. Exercise 1 includes the students who participate in more than 3 university clubs. Exercise 2 includes the students with less than or equal to 3 clubs.
+```{r}
+exercise1 = new_survey$exercise_time[new_survey$clubs > 3 & !is.na(new_survey$exercise_time) & new_survey$exercise_time <= 70]
+exercise2 = new_survey$exercise_time[new_survey$clubs <= 3 & !is.na(new_survey$exercise_time) & new_survey$exercise_time <= 70]
+```
+
+Assumption: exercise1 and exercise2 are independent and follow the same type of distribution, differing only by the shift.
+
+Create qq plot and box plot, since the two variables are not normally distributed, Wilcoxon test is used to test the relationship between the two variables.
+
+qqplot of exercise time and number of clubs:
+```{r}
+qqnorm(exercise1, main = "Q-Q plot of weekly exercise time for students with more than 3 clubs")
+qqline(exercise1)
+qqnorm(exercise2, main = "Q-Q plot of weekly exercise time for students with less than or equal to 3 clubs", cex.main=0.8)
+qqline(exercise2)
+```
+
+Boxplot of exercise time and number of clubs:
+```{r}
+par(mfrow=c(1,2))
+boxplot(exercise1, main = "Weekly exercise time of students with >3 clubs", cex.main=0.8)
+boxplot(exercise2, main = "Weekly exercise time of students with less than or equal to 3 clubs", cex.main=0.7)
+var(exercise1, na.rm = TRUE)
+var(exercise2, na.rm = TRUE)
+```
+
+From the plot above, there is a larger spread for exercise time for students with more than 3 clubs than students with less than 3 clubs and the median for students with more than 3 clubs is larger as compared to its counterpart.
+
+```{r}
+wilcox.test(exercise1, exercise2, alternative = "two.sided")
+```
+
+The observed test statistic is W = 852.5.
+
+Since p-value is smaller than 0.05, we reject the null hypothesis as there are evidence against the null hypothesis. This implies that students who participated in more than 3 clubs has different weekly exercise time than students who participate less than or equal to 3 clubs.
+
+
+## 6. Is there evidence that students who live with their parents study more hours per week than students who don't live with their parents?
+
+It is hypothesize that students who live with their parent study more than students who do not live with their parents. To check the significance of this, a hypothesis testing is performed using the Wilcoxon rank-sum test.
+
+Hypothesis: $H_{0}: \mu_y = \mu_n$ vs $H_{1}: \mu_Y > \mu_N$
+
+Table for respondents living with parents:
+```{r}
+# Wilcoxon rank-sum test
+table(new_survey$live_with_parents)
+
+parents_y = t(new_survey[new_survey$live_with_parents == "Yes", "study_time"])
+parents_n = t(new_survey[new_survey$live_with_parents == "No", "study_time"])
+
+dat = data.frame(
+  hours = c(parents_y, parents_n),
+  live_with_parents = c(rep("Yes", length(parents_y)),
+                        rep("No", length(parents_n)))
+)
+```
+
+It is assumed that $Y_i$ and $N_i$ are independent and follow the same distribution but differ by a shift.
+
+Boxplot of living with parents and hours spent studying:
+```{r}
+ggplot(dat, aes(x = live_with_parents, y = hours)) +
+  geom_boxplot() +
+  theme_minimal(base_size = 26)
+```
+
+```{r}
+library(dplyr)
+dat = dat %>% mutate(r = rank(hours))
+dat
+
+w_Y = sum(dat$r[dat$live_with_parents == "Yes"])
+w_Y
+w_N = sum(dat$r[dat$live_with_parents == "No"])
+w_N
+```
+
+```{r}
+sum_dat = dat %>%
+  group_by(live_with_parents) %>%
+  summarise(n = n(),
+            w = sum(r)
+  )
+sum_dat
+```
+
+```{r}
+n_Y = sum_dat$n[sum_dat$live_with_parents == "Yes"]
+n_N = sum_dat$n[sum_dat$live_with_parents == "No"]
+N = n_Y + n_N
+
+# using the sums of the "Yes" sample
+ew_Y = n_Y * (N + 1)/2
+minw_Y = n_Y * (n_Y + 1)/2
+
+c(minw_Y, w_Y, ew_Y)
+
+# using the sums of the "No" sample
+ew_N = n_N * (N + 1)/2
+minw_N = n_N * (n_N + 1)/2
+
+c(minw_N, w_N, ew_N)
+```
+
+```{r}
+#wilcox test manual
+pwilcox(w_Y - minw_Y - 1, n_Y, n_N)
+pwilcox(w_N - minw_N, n_N, n_Y, lower.tail = FALSE)
+
+#wilcox test
+wilcox.test(parents_y, parents_n, correct = FALSE, alternative = "less")
+
+#t test manual
+sumsqrank = sum(dat$r^2)
+g = N * (N + 1)^2/4
+varW = n_Y * n_N * (sumsqrank - g)/(N * (N - 1))
+t0 = (w_Y - ew_Y)/sqrt(varW)
+pnorm(t0)
+```
+
+Test statistic: $W = R_1 + R_2 + ... + R_{n_y}.$ Under $H_0$, W follows the WRS($n_Y,n_N$) distribution.
+
+Observed test statistic: $w = r_1 + r_2 + ... + r_{n_y}$
+
+```{r}
+#t test
+t.test(parents_y, parents_n, alternative = "less")
+```
+
+P-value: $P(W \geq w) =  0.1674 > 0.05$
+
+Since the p-value is greater than 0.05, we do not reject the null hypothesis and conclude that there is not enough evidence to prove that living with parents increases the number of hours students study.
+
+
+## 7. Extra Questions
+
+### 7a. Does season preference of students follows the uniform distribution?
+
+Table of favourite season:
+```{r}
+table(survey$fav_season)
+```
+
+This report would like to explore whether the season preference is uniformly distributed. This is done through a hypothesis testing as follow:
+
+Hypothesis: 
+
+H0: the favourite season of students follows the uniform distribution 
+
+H1: the favourite season is not uniformly distributed across students
+
+Assumption: the expected value for each season is greater than 5
+
+Plot of favourite season:
+```{r warning=FALSE}
+ggplot(NULL,aes(survey$fav_season))+
+  geom_histogram(bins=25,stat="count",color='black',fill='blue')+
+  xlab("favorite season") + ylab("number of students") + ggtitle("Favorite season of students")+
+  theme(plot.title = element_text(hjust = 0.5, face = 'bold')) 
+```
+
+From the plot, it is unsure that the season preference have a uniform distribution as they do not have a significant difference in height however for certainty, a chi-squared test is done:
+```{r}
+# chi-squared test manually
+x=c(24,20,19,15)
+xbar=mean(x)
+t0=sum((x-xbar)^2/xbar)
+1-pchisq(t0,3)
+
+# chi-squared test
+chisq.test(table(survey$fav_season))
+```
+
+Test statistic: t0 = $\sum \frac{{(x-\bar{x})^2}} {\bar {x}}$.
+
+Observed test statistic: t0 = 2.10256
+
+p_value: $P(T \geq t0) = P({x_3}^2 \geq 2.10256) = 0.55139$
+
+As the p value of the chi-squared test is larger than 0.05, so we do not reject the H0. We can conclude that the favourite season of students follows the uniform distribution.
+
+
+### 7b. Investigating if there exist a relationship between how far student lives from University of Sydney and the study hours a student spend.
+
+#### 7b.1
+
+Postcode of respondents:
+```{r}
+postcode <- new_survey$postcode
+counts <- table(postcode)
+counts
+```
+
+Bar Plot of postcode:
+```{r}
+barplot(counts, main="Postcode", xlab="Number of Respondents")
+```
+
+Study hours of respondents:
+```{r}
+study <- new_survey$study_time
+```
+
+Merge study hours and postcode table
+```{r}
+table1 <- data.frame(post = postcode, hr = study)
+t(table1)
+```
+
+Add similar postcode's study hours together
+```{r}
+library(data.table)
+dt <- data.table(table1)
+dt2 <- dt[,list(hours = sum(hr), freq = .N), by = c("postcode")]
+dt2
+```
+
+Averaged study hours and combine to table
+```{r}
+avg_hrs <- dt2$hours/dt2$freq
+table2 <- cbind(dt2,avg_hrs)
+table2 <- table2[-c(20), ]
+```
+
+How far away from University do respondents live?
+
+From the postcode provided by the respondents, taking its postcode and putting it on Apple's map application and setting the destination to University of Sydney, a distance of how far away the respondent lives from the University could be found. A snapshot of the process is shown as follow:
+
+![Snapshot of map](/Users/edbertfernando/Downloads/IMG_0295.png)
+
+All of the how far away is obtained from the 'walk' option. How far away (in km) from the University is recorded as 'dist'.
+```{r}
+table2 <- table2[order(table2$postcode),]
+dist = c(3,2.6,1.3,0.1,1.7,1.3,2.8,4.1,1.8,5.5,6.1,8.3,1.3,2.2,1.6,1.3,9.2,9.6,11,16,20,22,11,1.3,2.7,1.3,2.7,6.4,8.8,9.8,12,11,15,21,26,14,11,16,6.8,12,24,24,55,55,39)
+table2 <- cbind(table2,dist)
+table2
+```
+
+Given that every single person in the world has the same 24 hours, it can be hypothesize that the averaged study hours of the respondents are uniformly distributed, no matter how far they live from the University. There is however an argument against this hypothesize as it is believed that the further away the student lives from University, more time is spend on the road and therefore less time is available for studying. This can be done through a hypothesis testing as follow:
+
+Hypothesis: 
+
+H0: the average study hours of students follows the uniform distribution 
+
+H1: the average study hours is not uniformly distributed across students
+
+Assumption: the expected value for each season is greater than 5
+
+Group the distance into interval and sum its average hours
+```{r}
+binnedSamples <- cut(table2$dist, breaks = c(0, 2, 5, 10, 20, 10^6))
+tapply(table2$avg_hrs,binnedSamples,sum)
+```
+
+Obtained by dividing sum of interval hours by frequency
+```{r}
+hrs = c(21.1,15.6,20.8,17,9.5)
+```
+
+Average study hours for interval:
+```{r}
+# Combine average hours with interval
+table3 <- cbind(binnedSamples,hrs)
+dt1 <- data.table(table3)
+dt3 <- dt1[,list(hours = sum(hrs), freq = .N), by = c("binnedSamples")]
+dt3 <- dt3[order(dt3$binnedSamples)]
+avg_hrs <- dt3$hours/dt3$freq
+table5 <- cbind(dt3,avg_hrs)
+table5
+```
+
+Histogram of distance interval and average study hours:
+```{r}
+ggplot(table5, aes(x=table5$binnedSamples, y = table5$avg_hrs)) + geom_bar(stat="identity", fill = table5$binnedSamples) + scale_x_discrete(limit = c("1","2","3","4","5"), labels = c("0-2", "2.1-5", "5.1-10", "10.1-20", ">20.1")) + labs(x="Distance away from Uni (km)", y = "Hours spend studying (hr)")
+```
+
+Assuming a uniform distribution:
+```{r}
+# Total hours
+n = sum(avg_hrs)
+
+# Number of groups
+k = 5
+
+# Probability assuming a uniform distribution
+p_i = c(1/k, 1/k, 1/k, 1/k, 1/k) 
+
+# Expected counts
+e_i = n*p_i
+e_i
+```
+
+```{r}
+# Test if e_i is greater than 5
+e_i >= 5
+```
+
+```{r}
+# Observed test statistic
+avg <- table5$avg_hrs
+avg_i = avg
+t0 = sum((avg_i - e_i)^2 /e_i)
+round(t0,3)
+```
+
+```{r}
+# p-value
+pval = 1 - pchisq(t0, k - 1)
+round(pval,3)
+```
+
+The p-value is >> 0.05, we do not reject the null hypothesis. The data are consistent with a Uniform distribution. As the p-value is very close to 1, the test is to be run changing the intervals.
+
+#### 7b.1 (Changed interval)
+
+The same hypothesis test is used as above, but in this section, the interval is changed.
+
+Group the distance into interval and sum its average hours
+```{r warning=FALSE}
+binnedSamples1 <- cut(table2$dist, breaks = c(0:20, 10^6))
+tapply(table2$avg_hrs,binnedSamples1,sum)
+```
+
+Obtained by dividing sum of interval hours by frequency
+```{r}
+hrs1 = c(20,21.3,16.5,0,10,25,20.2,0,20.5,20.3,9.75,23,0,30,20,15,0,0,0,20,9.5)
+```
+
+Average study hours for interval:
+```{r warning=FALSE}
+# Combine average hours with interval
+table6 <- cbind(binnedSamples1,hrs1)
+dt4 <- data.table(table6)
+dt6 <- dt4[,list(hours = sum(hrs1), freq = .N), by = c("binnedSamples1")]
+dt6 <- dt6[order(dt6$binnedSamples1)]
+avg_hrs <- dt6$hours/dt6$freq
+table6 <- cbind(dt6,avg_hrs)
+table6
+```
+
+Histogram of distance interval and average study hours:
+```{r}
+ggplot(table6, aes(x=table6$binnedSamples1, y = table6$avg_hrs)) + geom_bar(stat="identity", fill = table6$binnedSamples1) + scale_x_discrete(limit = c("1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21"), labels = c("0-1", "1.1-2", "2.1-3", "3.1-4", "4.1-5", "5.1-6", "6.1-7", "7.1-8", "8.1-9", "9.1-10", "10.1-11", "11.1-12", "12.1-13", "13.1-14", "14.1-15", "15.1-16", "16.1-17", "17.1-18", "18.1-19", "19.1-20", ">20.1")) + theme(axis.text.x = element_text(angle=45)) + labs(x="Distance away from Uni (km)", y = "Hours spend studying (hr)")
+```
+
+The histogram above look far less similar to a uniform distribution graph.
+
+Assuming a uniform distribution:
+```{r}
+# Total hours
+n1 = sum(avg_hrs)
+
+# Number of groups
+k = 21
+
+# Probability assuming a uniform distribution
+p_i = c(1/k, 1/k, 1/k, 1/k, 1/k, 1/k, 1/k, 1/k, 1/k, 1/k, 1/k, 1/k, 1/k, 1/k, 1/k, 1/k, 1/k, 1/k, 1/k, 1/k, 1/k) 
+
+# Expected counts
+e_i = n*p_i
+e_i
+```
+
+```{r}
+# Test if e_i is greater than 5
+e_i >= 5
+```
+
+```{r}
+# Combine adjacent classes to satisfy assumptions
+yr = c(avg_hrs[1] + avg_hrs[2], avg_hrs[3] + avg_hrs[4], avg_hrs[5] + avg_hrs[6], avg_hrs[7] + avg_hrs[8], avg_hrs[9] + avg_hrs[10] , avg_hrs[11] + avg_hrs[12] , avg_hrs[13] + avg_hrs[14])
+yr
+```
+
+```{r}
+eyr = c(e_i[1] + e_i[2], e_i[3] + e_i[4], e_i[5] + e_i[6], e_i[7] + e_i[8], e_i[9] + e_i[10], e_i[11] + e_i[12], e_i[13] + e_i[14])
+eyr
+```
+
+```{r}
+pr = c(p_i[1] + p_i[2], p_i[3] + p_i[4], p_i[5] + p_i[6], p_i[7] + p_i[8], p_i[9] + p_i[10], p_i[11] + p_i[12], p_i[13] + p_i[14])
+pr
+```
+
+```{r}
+# number of combined classes
+kr = length(yr)
+
+# test statistic
+t0 = sum((yr - eyr)^2 /eyr)
+t0
+```
+
+```{r}
+# p-value
+pval = 1 - pchisq(t0, df = kr - 1 - 1)
+pval
+```
+
+This is an interesting finding, by changing the intervals, the p-value is < 0.5 suggesting that we should reject the null hypothesis as there are evidence against the study hours of students follow a uniform distribution with how far they live from the University.
+
+This is contradictory from the testing done in **7b.1**. This problem is also known by p-hacking and is discussed further under **9. P-Hacking**.
+
+To be able to obtain a better testing result for this question, an equal number of respondents living at different distances away from the school should be obtained.
+
+### 7c. Is there any relationship between having pets and living with parents?
+
+It is hypothesized that there is an independence between having a pet and living with parents.
+
+$H_{0}: p_{ij}=p_{i.}p_{.j}$, $i=1,2; j=1,2$ 
+$H_{1}$: At least one equality does not hold. 
+
+```{r}
+table(new_survey$pet, new_survey$live_with_parents)
+```
+
+```{r}
+petvparents = matrix(c(29,25,14,10), nrow=2)
+colnames(petvparents) = c("Not live with Parents", "Live with Parents")
+rownames(petvparents) = c("No Pets", "Pets")
+petvparents
+```
+
+Assumptions: $e_{ij}=y_{i.}y_{.j}/n \geq 5.$
+
+Visual representation of living with parents and having pets:
+```{r}
+y1 = petvparents %>% as.data.frame() %>% 
+  tibble::rownames_to_column(var = "viewing") %>% 
+  tidyr::gather(key = parents, value = count, -viewing)
+p_base = ggplot(y1, aes(x = parents, y = count, fill = viewing)) + 
+  theme_bw(base_size = 12) + 
+  scale_fill_brewer(palette = "Set1") + 
+  labs(fill = "", x = "Live with parents") +
+  theme(legend.position = "top")
+p1 = p_base + 
+  geom_bar(stat = "identity", position = "fill") + 
+  labs(y = "Count") 
+p1
+```
+
+Chi-squared test of independence is done:
+```{r}
+chisq.test(petvparents, correct = FALSE)
+```
+
+Test statistic: $T=\sum_{i=1}^2\sum_{j=1}^2 \frac {(Y_{ij} - e_{ij})^2}{e_ij}. Under H_{0}, T$~$\chi^2_{1} approx.$
+
+Observed test statistic: $t_0=0.017636$
+
+P-value: $P(\chi^2_{1}\geq0.017636) = 0.8944 > 0.05$
+
+Since the p-value is greater than 0.05, we do not reject the null hypothesis and conclude that there is not enough evidence to prove that there is any significant relationship between living with parents and having pets.
+
+### 7d. Is there any evidence that the weekly exercise time of female and male are different?
+
+This report would like to explore the relationship of weekly exercise time with gender. This is done through a hypothesis testing as follow:
+
+Hypothesis: 
+
+H0: the mean of exercise time of students for male is equal to the mean of exercise time of students for female.
+
+H1: the means of exercise time of students for male is not equal to the mean of exercise time of students for female.
+
+Create two new values, exercise_female and exersice_male. Exercise_female includes the female students. Exercise_male includes the male students.
+```{r}
+exercise_male = new_survey$exercise_time[new_survey$gender == "M" & !is.na(new_survey$exercise_time) & new_survey$exercise_time <= 70]
+exercise_female = new_survey$exercise_time[new_survey$gender == "F" & !is.na(new_survey$exercise_time) & survey$exercise_time <= 70]
+```
+
+Assumption: exercise_male and exercise_female are independent and follow the same type of distribution, differing only by the shift.
+
+Create qq plot and box plot, since the variable "exercise_male" is not normally distributed, Wilcoxon test is used to test the relationship between there two variables.
+
+Create qq plot and box plot, since the two variables are normally distributed, we are going to use t-test to test the relationship between the two variables.
+
+qqline for gender vs weekly exercise time
+```{r}
+qqnorm(exercise_male, main = "Q-Q plot of weekly exercise time for males")
+qqline(exercise_male)
+qqnorm(exercise_female, main = "Q-Q plot of weekly exercise time for females")
+qqline(exercise_female)
+```
+
+Boxplot of gender vs weekly exercise time
+```{r}
+par(mfrow=c(1,2))
+boxplot(exercise_male, main = "Boxplot of weekly exercise time for males",cex.main=0.8)
+boxplot(exercise_female, main = "Boxplot of weekly exercise time for females",cex.main=0.8)
+var(exercise_male, na.rm = TRUE)
+var(exercise_female, na.rm = TRUE)
+```
+
+From the plot, the median of weekly exercise time for males is just slightly higher than that of female's. There is a larger spread in data for male than that of female.
+
+```{r}
+t.test(exercise1, exercise2, alternative = "two.sided", var.equal = FALSE)
+```
+
+Since the p value is smaller than 0.05, we reject the null hypothesis as there are evidence against the null hypothesis. This implies that female and male have different exercise time. 
+
+## 8. Limitations and suggestion for improvement of data collection
+
+Limitations of the dataset were briefly discussed under **2. What are the potential biases in this data generation?**. The fact that the dataset was done voluntarily suggest that it is prone to volunteer bias (Meier, 1977). The dataset has more male respondents than female and the gender proportion of the whole class of DATA 2002 is not quite the same as that obtained from the survey. If the class has the same proportion of male as the proportion of male respondent, the dataset can be used as a representation of the whole class otherwise, the results must be used with some degree of scepticism. 
+
+As discussed in **1. Is this a random sample of DATA 2002 students?**, there is a very high respondents at a particular hour of a day for the period the survey was done. This report suspects that the survey was done in the same tutorial class and this may not be an accurate representation of the whole class. 
+
+A suggestion for improvement of data collection is by randomly going through the list of names of students enrolled in DATA 2002 and picking the students at random to respond to the survey. 
+
+## 9. P-Hacking
+
+A discovery made from this report is the effect of P-hacking, an infamous error often made by scientists by conclude variables that are not related to be statistically significant by changing the intervals or ignoring certain range of datasets (Head, 2015). An example of this from this report can be seen under **7b. Investigating if there exist a relationship between how far student lives from University of Sydney and the study hours a student spend**. 
+
+## 10. Limitations of report
+
+Limitations of the study and testing done in this report can be trace to the flaws in the dataset due to the presence of biases discussed under **8. Limitations and suggestion for improvement of data collection**. Another limitation in this report is there may be subjected to p-hacking as discussed in **9. P-Hacking**. 
+
+# References
+
+```{r}
+citation("ggplot2")
+citation("tidyverse")
+citation("forcats")
+citation("tibble")
+citation("data.table")
+```
+
+Head ML, Holman L, Lanfear R, Kahn AT, Jennions MD (2015) The Extent and Consequences of P-Hacking in Science. PLoS Biol 13(3): e1002106. https://doi.org/10.1371/journal.pbio.1002106
+
+Foot shape of older people: Implications for shoe design - Scientific Figure on ResearchGate. Available from: https://www.researchgate.net/Distribution-of-shoe-sizes-for-men-n-14-158-and-women-n-14-154_fig3_232851673 [accessed 13 Sep, 2018]
+
+Meier, P. (1977) The biggest health experiment ever: the 1954 field trial of the Salk poliomyelitis vaccine. in Statistics: a Guide to the Biological and Health Sciences ed. J.M. Tanur et al. Holden-Day, San Francisco.
+
+Tarr, G. (2018). DATA2002 class survey. Unpublished raw data. Retrieved from https://docs.google.com/spreadsheets/d/1v9z90dWY2wJrjjE5sJ0xzrXZ4rmps7WSkfA_pOJHaNk/export?gid=758763310&format=csv
+
+Thomas C. Redman (2017) Data quality must reads for researchers, Journal of Decision Systems, 26:3, 203-206, DOI: 10.1080/12460125.2017.1307621
+
+
+

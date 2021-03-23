@@ -1,0 +1,355 @@
+---
+title: "Module 4 Report"
+author: "440507019, 450598173, 470461147 & 480140940"
+date: 1 November 2018
+output:
+  html_document:
+    code_folding: hide
+    css: https://use.fontawesome.com/releases/v5.2.0/css/all.css
+    fig_caption: yes
+    number_sections: no
+    self_contained: yes
+    theme: flatly
+    toc: yes
+    toc_depth: 2
+    toc_float: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require("tidyverse")
+require("lubridate")
+require("kableExtra")
+```
+
+<style>
+h1.title {
+  font-size: 44px;
+}
+blockquote {
+    border-left:none;
+    font-size: 1em;
+    display: block;
+    margin-top: .25em;
+    margin-left: 20px;
+}
+.table{
+    margin-bottom:0px;
+}
+h1 {
+    color:	#e64626;
+    font-size: 32px;
+}
+h2 {
+    font-size: 22px;
+}
+h3 {
+    font-size: 21px;
+}
+h4 {
+    font-size: 17px;
+}
+.list-group-item.active, .list-group-item.active:hover, .list-group-item.active:focus{
+    background-color:#e64626;
+}
+h2, h3, h4, h5, h6 {
+    color: black;
+}
+h1, h2, h3{
+font-weight:bold;
+}
+a { 
+    color: #0148A4; 
+} 
+body { 
+    color: #424242; 
+}
+</style>
+
+# Executive Summary
+
+DATA 2002: Data Analytics- Learning from Data is an intermediate unit of study at the University of Sydney. The unit aims to equip students with knowledge and skills that will enable them to embrace data analytic challenges stemming from everyday problems. 
+
+This report seeks to identify a good classifier for spam vs non-spam messages and report on its performance (in-sample and out-of-sample). 
+
+Three methods were performed namely decision tree/ random forest method, a logistic regression and nearest neighbours approach. This report found that the logistic regression is the best classifier of the approaches performed in the report.
+
+# Introduction
+
+DATA 2002: Data Analytics- Learning from Data is an intermediate unit of study at the University of Sydney. The unit aims to equip students with knowledge and skills that will enable them to embrace data analytic challenges stemming from everyday problems. 
+
+As part of semester 2 2018 assessment of the unit of study, students are required to identify a good classifier for spam vs non-spam emails and report on its performance (in-sample and out-of-sample).  
+
+# Data Overview
+
+The data has 4601 messages with 58 different variables, the objective is to try to predict whether the email was junk email or 'spam'. 
+
+## Data Import
+
+The data can be found here https://archive.ics.uci.edu/ml/datasets/spambase (which gives quite a lot of background information about the data). It is also available in the kernlab package, which is perhaps the simplest way to load the data into R:
+
+```{r tidy, warning=FALSE, message=FALSE}
+library(lattice)
+library(ggplot2)
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(partykit)
+library(randomForest)
+library(class)
+library(cvTools)
+library(stargazer)
+data(spam, package = "kernlab")
+s = spam
+t = spam
+glimpse(spam)
+```
+
+# Results
+
+## Logistic Regression
+
+Fit into a logistic regression
+```{r warning=FALSE, message=FALSE}
+glm1 = glm(type ~., family = binomial, data = spam)
+```
+
+Perform AIC backward stepwise model selection
+```{r warning=FALSE, message=FALSE}
+step.back.aic = step(glm1, direction = "backward", trace = FALSE)
+```
+
+```{r results="asis"}
+stargazer::stargazer(glm1, step.back.aic, type = "html", column.labels = c("Full model","Stepwise model"))
+```
+
+Generate confusion matrix to assess the in-sample accuracy of the predictions from the stepwise model
+
+```{r}
+preds = as.factor(round(predict(step.back.aic, type = "response")))
+preds <- as.character(preds)
+preds[preds == "0"] <- "nonspam"
+preds[preds == "1"] <- "spam"
+preds <- as.factor(preds)
+truth = as.factor(spam$type)
+confusionMatrix(data = preds, reference = truth)
+```
+
+Therefore the percentage of predicted the correct categories is 93.2%. It has a 4.3% of wrongly classifying a nonspam email as a spam.
+
+Perform 5 fold cross-validation to get a sample accuracy for the stepwise model.
+
+```{r warning = FALSE}
+set.seed(1)
+spam$pred[step.back.aic$fitted.values >= 0.5] = "spam"
+spam$pred[step.back.aic$fitted.values < 0.5] = "nonspam"
+
+a = table(spam$pred, spam$type)
+
+table(spam$type)[1] / dim(spam)[1]
+mean(spam$type == spam$pred)
+a[2, 1] / (sum(a[, 1]))
+
+b=train(step.back.aic$formula,
+      data = spam, 
+      method = "glm",
+      family = "binomial",
+      trControl = trainControl(
+        method = "cv", number = 5,
+        verboseIter = FALSE
+      ))
+b
+```
+
+The out of sample gives the accuracy of 93% which is just very slightly lower than the in-sample.
+
+## Decision Tree
+
+Creating a tree classifier with 1% for the complexity parameter (default)
+
+```{r}
+tree = rpart(factor(type) ~ ., data = s, method = "class")
+```
+
+Visualising the trees (2 different layouts)
+```{r}
+rpart.plot(tree)
+```
+
+```{r}
+plot(as.party(tree))
+```
+
+```{r}
+summary(tree)
+```
+
+In-sample Performance:
+
+```{r}
+type_pred = predict(tree, type = "class")
+confusionMatrix(
+  data = type_pred,
+  reference = s$type)
+```
+
+The accuracy of our tree is 90.3%. It has a 4.8% of wrongly classifying a nonspam email as a spam.
+
+Performance Benchmarking:
+
+- Selecting the worst possible accuracy.
+
+```{r}
+table(spam$type)
+benchmark = 1813/(2788+1813)
+benchmark
+```
+
+By assuming that the benchmark model will predict that all emails are spams, we have will achieve a 39.4% accuracy. Our previous tree model achieves a much higher accuracy of 90.3%.
+
+Out-of-sample Performance:
+
+The out-of-sample performance was done using 10 fold cross-validation.
+
+```{r}
+train(type ~ ., data = s,
+      method = "rpart", trControl = trainControl(method = "cv", number = 10))
+```
+
+The CV procedure suggests 4.3% for the complexity parameter. This gives the out of sample accuracy of 85.7% which is slightly worse than the in-sample. It appears that the decision tree is over-fitting slightly which drags down its out of sample performance.
+
+```{r}
+tree2 = rpart(factor(type) ~ ., data = s, method = "class", control = rpart.control(cp = 0.043))
+plot(as.party(tree2))
+```
+
+```{r}
+set.seed(2018)
+type_pred2 = predict(tree2, type = "class")
+confusionMatrix(
+  data = type_pred2,
+  reference = spam$type)
+```
+
+Although this results in a lower in-sample accuracy, we believe that this tree with a complexity parameter of 4.3% is derived from the CV procedure, will result in the least over-fitting problem.
+
+## Random Forest
+
+```{r}
+set.seed(2018)
+rf = randomForest(factor(type) ~ ., data = s)
+rf
+```
+
+The random forest has an out of bag error rate of 4.65% which corresponds to an out of bag accuracy of 95.4%, a little better than the decision tree's accuracy.
+
+## K-Nearest Neighbour 
+
+```{r}
+X = t %>% select(-type)
+```
+
+```{r}
+fitCtrl = trainControl(
+  method = "repeatedcv",
+  number = 5,
+  repeats = 10)
+set.seed(1)
+knnFit1 = train(
+  type ~ ., data = spam, 
+  method = "knn", 
+  trControl = fitCtrl)
+knnFit1
+```
+
+Using caret package to choose the most appropriate k value with repeated times 10. As the result shows above, the most accurate k value is 5, which has the corresponding mean accuracy of 10 times 80%.
+
+```{r eval=FALSE}
+knn1 = knn(train = X, test = X, cl = spam$type, k = 5)
+confusionMatrix(knn1,spam$type)$table
+confusionMatrix(knn1,spam$type)$overall[1] %>% round(2)
+knn1
+```
+
+Test for the performance for the k value = 5. Obtaining the confusion matrix of the knn model, the accuracy of the k nearest neighbours model with k value 5 is 87%.
+
+# Conclusion
+
+The report shows that even though using a random forest approach yields the highest accuracy of 95.4% of correctly identifying the type of email, it has an error rate of 4.65% of wrongly classifying a nonspam email as a spam email. In contrast, using the logistic approach even though yields a slightly lower accuracy rate of 93.2, it has an error rate of 4.3%. To put this in context of the data, a difference of 0.35% resulted in around 16 nonspam emails wrongly classified as spam emails.
+
+
+# References
+
+A. Liaw and M. Wiener (2002). Classification and
+  Regression by randomForest. R News 2(3), 18--22.
+  
+Alexandros Karatzoglou, Alex Smola, Kurt Hornik, Achim
+  Zeileis (2004). kernlab - An S4 Package for Kernel
+  Methods in R. Journal of Statistical Software 11(9),
+  1-20. URL http://www.jstatsoft.org/v11/i09/
+  
+Andreas Alfons (2012). cvTools: Cross-validation tools
+  for regression models. R package version 0.3.2.
+  https://CRAN.R-project.org/package=cvTools
+
+Garrett Grolemund, Hadley Wickham (2011). Dates and Times
+  Made Easy with lubridate. Journal of Statistical
+  Software, 40(3), 1-25. URL
+  http://www.jstatsoft.org/v40/i03/.
+  
+H. Wickham. ggplot2: Elegant Graphics for Data Analysis.
+  Springer-Verlag New York, 2016.
+
+Hadley Wickham (2017). tidyverse: Easily Install and Load
+  the 'Tidyverse'. R package version 1.2.1.
+  https://CRAN.R-project.org/package=tidyverse
+  
+Hlavac, Marek (2018). stargazer: Well-Formatted
+  Regression and Summary Statistics Tables. R package
+  version 5.2.1.
+  https://CRAN.R-project.org/package=stargazer
+  
+Max Kuhn. Contributions from Jed Wing, Steve Weston,
+  Andre Williams, Chris Keefer, Allan Engelhardt, Tony
+  Cooper, Zachary Mayer, Brenton Kenkel, the R Core Team,
+  Michael Benesty, Reynald Lescarbeau, Andrew Ziem, Luca
+  Scrucca, Yuan Tang, Can Candan and Tyler Hunt. (2018).
+  caret: Classification and Regression Training. R package
+  version 6.0-80. https://CRAN.R-project.org/package=caret
+  
+Sarkar, Deepayan (2008) Lattice: Multivariate Data
+  Visualization with R. Springer, New York. ISBN
+  978-0-387-75968-5
+  
+Stephen Milborrow (2018). rpart.plot: Plot 'rpart'
+  Models: An Enhanced Version of 'plot.rpart'. R package
+  version 3.0.4.
+  https://CRAN.R-project.org/package=rpart.plot
+  
+Terry Therneau and Beth Atkinson (2018). rpart: Recursive
+  Partitioning and Regression Trees. R package version
+  4.1-13. https://CRAN.R-project.org/package=rpart
+
+Torsten Hothorn, Achim Zeileis (2015). partykit: A
+  Modular Toolkit for Recursive Partytioning in R. Journal
+  of Machine Learning Research, 16, 3905-3909. URL
+  http://jmlr.org/papers/v16/hothorn15a.html
+
+Torsten Hothorn, Kurt Hornik and Achim Zeileis (2006).
+  Unbiased Recursive Partitioning: A Conditional Inference
+  Framework. Journal of Computational and Graphical
+  Statistics, 15(3), 651--674. 
+  
+Venables, W. N. & Ripley, B. D. (2002) Modern Applied
+  Statistics with S. Fourth Edition. Springer, New York.
+  ISBN 0-387-95457-0
+
+
+
+
+
+
+
+
+
+

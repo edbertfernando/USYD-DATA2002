@@ -1,0 +1,492 @@
+---
+title: "Module 1 Report"
+author: "450598173"
+date: 25 August 2018
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+The Australian road fatalities data is collected individually by the policemen/women in charge at the scene. It is then compiled and published by Australian Government's Bureau of Infrastructure, Transport and Regional Economics [citeulike:14629294].
+
+An overview of the data can be seen as below:
+```{r include=FALSE}
+library("tidyverse")
+fdata = readr::read_csv("https://raw.githubusercontent.com/DATA2002/data/master/BITRE_ARDD_Fatalities_June_2018_RevII.csv")
+```
+
+```{r}
+glimpse(fdata)
+```
+
+
+The data is reported in 14 categories: 'Crash ID' is the National crash-identifying number which is reported as a unique 8-digit integers. 'State' is Australian jurisdiction and is reported as a text with the abbreviation for each state/territory. 'Month' is the month of the crash and is reported as a text with one of the following: January, February, March, April, May, June, July, August, September, October, November and December. 'Year' is the year of the crash and is reported as an integer.
+
+'DayOfWeek' is the day of week of crash and is recorded as a text with one of the following input: Monday, Tuesday, Wednesday, Thursday, Friday, Saturday and Sunday. 'Time' is the time of crash and is recorded in the hh:mm (hour:minutes) format. 'Crash Type' is a code summarising the type of crash with 3 values relating to the number of vehicles involved, and whether a pedestrian was killed and is recorded with either single, multiple or pedestrian. 
+
+'Bus Involvement' indicates the involvement of a bus in the crash, 'Rigid Truck Involvement' indicates the involvement of a rigid truck in the crash and 'Articulated Truck Involvement' indicates the involvement of an articulated truck in the crash are all recorded as with boolean values. 'Speed Limit' is the posted speed limited at the location of crash recorded as an integer value with '900' as no speed limit posted at the location of crash. 
+
+'Road User' is the road user type that is killed in the crash with either one or a combination of the following inputs: driver, passenger, pedestrian, motorcycle rider, motorcycle pillion passenger and bicyclist. 'Gender' is the sex of killed person and is recorded as male or female. 'Age' is the age of killed person in years and is recorded as an integer value. 
+
+Missing values are recorded in the data with either '-9' or 'Unknown'. Missing values occured most likely due to human error such as missing archieve from past years, incomplete or missing paperwork of recent records and as a data scientist, one must be skeptical when presented with a set of data, missing values could be intentional to prove a point of the effect of a change in policy for political agenda [review2018hbr].
+
+Since 1989, there are 49257 fatalities occured and 44260 fatal fatalities occured. This can be seen from the number of observations on the top right of the RStudio for the data set.
+
+# Australian Fatal Crash
+
+Trim data to hour:
+```{r}
+BITRE_ARDD_Fatal_Crashes_July2018 <- read.table("BITRE_ARDD_Fatal_Crashes_July2018.csv",sep=",",header=T)
+```
+
+```{r}
+Hour_Edit <- BITRE_ARDD_Fatal_Crashes_July2018$Time
+Hour_Edit1 <- strtrim(Hour_Edit, 2)
+```
+
+Bar Plot of Hour of Fatal Crash:
+```{r}
+counts <- table(Hour_Edit1)
+barplot(counts, main="Hour of Fatal Crashes", xlab="Number of Fatal Crashes at Hour")
+```
+
+From the barplot above, it is evident that the most common hour of the fatal crash occured at the 15:00 hour mark.
+
+Bar Plot of Day of Fatal Crash:
+```{r}
+BITRE_ARDD_Fatal_Crashes_July2018$Dayweek <- factor(BITRE_ARDD_Fatal_Crashes_July2018$Dayweek, levels = c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))
+counts1 <- table(BITRE_ARDD_Fatal_Crashes_July2018$Dayweek)
+barplot(counts1, main="Day of Fatal Crashes", xlab="Number of Fatal Crashes at Day")
+```
+
+From the barplot above, it is evident that the most common day for a fatal crash occured on Saturday.
+
+Bar Plot of Month of Fatal Xrash:
+```{r}
+BITRE_ARDD_Fatal_Crashes_July2018$Month <- factor(BITRE_ARDD_Fatal_Crashes_July2018$Month, levels = c("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"))
+counts2 <- table(BITRE_ARDD_Fatal_Crashes_July2018$Month)
+barplot(counts2, main="Month of Fatal Crashes", xlab="Number of Fatal Crashes at Month")
+```
+
+Since, the barplot is very close for March and December, table for the number of fatal crashes for the month is needed:
+
+```{r}
+counts2
+```
+
+From the table above, it is evident that the number of fatal crashes in March is the highest.
+
+The plot above of the month of the fatal crash shows a similar number of crashes across the months. A null Hypothesis could be made that the crash occured for the month follow a uniform distribution. To check if this, we perform a hypothesis test.
+
+```{r}
+# Input observed counts
+y_i = counts2
+
+# Number of months
+n = sum(y_i)
+
+# Number of groups
+k = length(y_i)
+
+# Probability assuming a uniform distribution
+p_i = c(1/k, 1/k, 1/k, 1/k, 1/k, 1/k, 1/k, 1/k, 1/k, 1/k, 1/k, 1/k) 
+
+# Expected counts
+e_i = n*p_i
+e_i
+```
+
+```{r}
+# Test if e_i is greater than 5
+e_i >= 5
+```
+
+```{r}
+# Observed test statistic
+t0 = sum((y_i - e_i)^2 /e_i)
+round(t0,3)
+```
+
+```{r}
+# p-value
+pval = 1 - pchisq(t0, k - 1)
+round(pval,3)
+```
+
+Since the p-value is < 0.05, there is strong evidence in the data against the null hypothesis. This suggest that there is at least one of the months where the probabilty of fatal crash is not equal to 1/12.
+
+# ACT Fatal Crashes
+
+Using the data viewer in Rstudio, the number of fatal crashes are 417 cases.
+
+Summarising the Fatal Crashes in ACT:
+```{r}
+counts = BITRE_ARDD_Fatal_Crashes_July2018 %>% 
+  dplyr::filter(State == "ACT") %>% 
+  dplyr::group_by(State, Year, Month) %>% 
+  dplyr::summarise(n = dplyr::n())
+counts$Month = factor(counts$Month, 
+						levels = c("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"),
+						ordered = TRUE)
+
+# and if we wanted to plot the counts
+library(ggplot2)
+ggplot(counts, aes(x = Month, y = n)) + 
+  geom_bar(stat = "identity") + 
+  coord_flip()
+```
+
+The plot above shows the frequency of fatal crashes for ACT in different months across 1989 and 2018. A null Hypothesis could be made that the crash occured for the month follow a Poisson distribution. To check if this, we perform a hypothesis test.
+
+Summary for ACT fatal Crash:
+```{r}
+no_months = c(139, 120, 78, 31, 7, 4)
+no_crashes = c(0, 1, 2, 3, 4, 5)
+rbind(no_months, no_crashes)
+barplot(no_months, names.arg = no_crashes)
+```
+
+The plot above shows the frequency of fatal crashes for ACT and the number of months across 1989 and 2018. A null Hypothesis could be made that the crash occured for the month follow a Poisson distribution. To check if this, we perform a hypothesis test.
+
+```{r}
+# number of months
+n = sum(no_months)
+
+# number of groups
+k = length(no_months)
+
+# estimate lambda parameter
+lam = sum(no_months * no_crashes)/n
+round(lam,2)
+```
+
+```{r}
+# obtain p_i from the Poisson pmf
+p = dpois(no_crashes, lambda = lam)
+p
+```
+
+```{r}
+# Re-define the 5th element
+p[6] = 1 - sum(p[1:5])
+p
+```
+
+```{r}
+# Calculate the expected frequencies
+ey = n * p
+ey
+```
+
+```{r}
+# Check if assumption e_i >= 5 if satisfied
+ey > 5
+```
+
+```{r}
+# Combine adjacent classes to satisfy assumptions
+yr = c(no_months[1:4], no_months[5] + no_months[6])
+yr
+```
+
+```{r}
+eyr = c(ey[1:4], ey[5] + ey[6])
+eyr
+```
+
+```{r}
+pr = c(p[1:4], p[5] + p[6])
+pr
+```
+
+```{r}
+# number of combined classes
+kr = length(yr)
+
+# test statistic
+t0 = sum((yr - eyr)^2 /eyr)
+t0
+```
+
+```{r}
+# p-value
+pval = 1 - pchisq(t0, df = kr - 1 - 1)
+round(pval,3)
+```
+
+Since the p-value is > 0.05, we do not reject the null hypothesis. The data are consistent with a Poisson distribution.
+
+# Truck Involvement and Crash Type
+
+Investigating if there exist a relationship between articulated truck involvement and crash type.
+```{r}
+counts = fdata %>% 
+  dplyr::group_by(Crash_Type, Articulated_Truck_Involvement) %>% 
+  dplyr::summarise(n = dplyr::n())
+```
+
+```{r}
+table = rbind(counts$Articulated_Truck_Involvement,counts$Crash_Type,counts$n)
+```
+
+```{r}
+y = c(741, 19595, 3830, 17213, 437, 7338)
+n = sum(y)
+c = 3
+r = 2
+y.mat = matrix(y, nrow = r, ncol = c)
+colnames(y.mat) = c("Single vehicle", "Multiple vehicle", "Pedestrian")
+rownames(y.mat) = c("Yes", "No")
+y.mat
+```
+
+Visual representation of truck involvement and crash type:
+```{r}
+y = matrix(c(741, 19595, 3830, 17213, 437, 7338), ncol = 3)
+colnames(y) = c("Single vehicle", "Multiple vehicle", "Pedestrian")
+rownames(y) = c("Yes", "No")
+y1 = y %>% as.data.frame() %>% 
+  tibble::rownames_to_column(var = "viewing") %>% 
+  tidyr::gather(key = age, value = count, -viewing)
+p_base = ggplot(y1, aes(x = age, y = count, fill = viewing)) + 
+  theme_bw(base_size = 12) + 
+  scale_fill_brewer(palette = "Set1") + 
+  labs(fill = "", x = "Age group") +
+  theme(legend.position = "top")
+p1 = p_base + 
+  geom_bar(stat = "identity", position = "fill") + 
+  labs(y = "Count") 
+p1
+```
+
+Chi-squared test is done:
+```{r}
+chisq.test(y.mat, correct = FALSE)
+```
+
+The chi-squared test returns a very small p-value implying that there is evidence against the claim that there exist a statistically significant association exist between articulated truck involvement and the crash type.
+
+```{r}
+# Row sums of y.mat
+yr = apply(y.mat, 1, sum)
+yr
+
+# Column sums of y.mat
+yc = apply(y.mat, 2, sum)
+yc
+```
+
+```{r}
+yr.mat = matrix(yr, r, c, byrow = FALSE)
+yc.mat = matrix(yc, r, c, byrow = TRUE)
+
+# Matrix multiplication: ey.mat = yr * t(yc) /n
+ey.mat = yr.mat * yc.mat / sum(y.mat)
+ey.mat
+```
+
+```{r}
+# Check if all e_ij is greater than 5
+all(ey.mat >= 5)
+```
+
+```{r}
+# Test statistic
+t0 = sum((y.mat - ey.mat)^2 / ey.mat)
+round(t0,3)
+```
+
+```{r}
+# p-value
+pval = pchisq(t0, (r - 1) * (c - 1), lower.tail = FALSE)
+pval
+```
+
+Since the p-value is < 0.05, there is strong evidence in the data against the null hypothesis that there is association between articulated truck involvement and the type of crash.
+
+Monte Carlo p-value:
+```{r}
+# Calculate row and column totals:
+row_totals = rowSums(y.mat)
+row_totals
+
+col_totals = colSums(y.mat)
+col_totals
+```
+
+Randomly generate a contingency table with same row and column totals:
+```{r}
+set.seed(2018)
+rnd = r2dtable(n = 1, r = row_totals, c = col_totals)
+chisq.test(rnd[[1]])$statistic
+```
+
+Monte-Carlo p-value obtained by generating 10,000 contingency tables, computing chi-squared test statistic for each table.
+
+```{r}
+B = 10000
+stat = numeric(length = B)
+tables = r2dtable(n = B, r = row_totals, c = col_totals)
+for (i in 1:B) {
+  stat[i] = suppressWarnings(chisq.test(tables[[i]], )$statistic)
+}
+stat = sapply(tables, function(x) suppressWarnings(chisq.test(x)$statistic))
+mc_pval = mean(stat > t0)
+mc_pval
+```
+
+Distribution of test statistics:
+```{r}
+hist(stat)
+```
+
+# Speed Limit and Fatalities
+
+A journal article "Relationship of traffic fatality rates to maximum state speed limits" by Charles M. Farmer states that in the U.S. during 1993-2013, an increase in speed limit resulted in an increase of fatalities [doi:10.1080/15389588.2016.1213821]. This report aims to investigate the similarity between Australia and the US' correlation for speed limit and fatality cases.
+
+Summarising the fatal crashes into speed limit
+```{r}
+counts5 = fdata %>% 
+  dplyr::group_by(Speed_Limit) %>% 
+  dplyr::summarise(n = dplyr::n())
+counts5
+```
+
+```{r}
+# Delete missing data
+counts5a <- counts5[-c(1),]
+```
+
+The probability of a crash is often rare and has a large data set (number of cars), this can be modelled by a Poisson distribution. The plot above shows the frequency of fatal crashes for Australia and the speed limit across 1989 and 2018. A null Hypothesis could be made that the crash occured for the month follow a Poisson distribution. To check if this, we perform a hypothesis test.
+
+```{r}
+barplot(counts5a$n, names.arg = counts5a$Speed_Limit)
+```
+
+The plot above shows the frequency of fatal crashes for Australia and the speed limits across 1989 and 2018. A null Hypothesis could be made that the crash occured for the speed limit follow a Poisson distribution. To check if this, we perform a hypothesis test.
+
+```{r}
+# number of speed limits
+n = sum(counts5a$n)
+
+# number of groups
+k = length(counts5a$n)
+
+# estimate lambda parameter
+lam = sum(counts5a$n * counts5a$Speed_Limit)/n
+round(lam,2)
+```
+
+```{r}
+# obtain p_i from the Poisson pmf
+p = dpois(counts5a$Speed_Limit, lambda = lam)
+p
+```
+
+```{r}
+# Re-define the 18th element
+p[19] = 1 - sum(p[1:18])
+p
+```
+
+```{r}
+# Calculate the expected frequencies
+ey = n * p
+ey
+```
+
+```{r}
+# Check if assumption e_i >= 5 if satisfied
+ey > 5
+```
+
+```{r}
+# Combine adjacent classes to satisfy assumptions
+yr = c(counts5a$n[1] + counts5a$n[2] + counts5a$n[3] + counts5a$n[4] + counts5a$n[5] + counts5a$n[6] + counts5a$n[7] + counts5a$n[8] + counts5a$n[9] + counts5a$n[10], counts5a$n[11:16], counts5a$n[17] + counts5a$n[18] + counts5a$n[19])
+yr
+```
+
+```{r}
+eyr = c(ey[1] + ey[2] + ey[3] + ey[4] + ey[5] + ey[6] + ey[7] + ey[8] + ey[9] + ey[10], ey[11:16], ey[17] + ey[18] + ey[19])
+eyr
+```
+
+```{r}
+pr = c(p[1] + p[2] + p[3] + p[4] + p[5] + p[6] + p[7] + p[8] + p[9] + p[10], p[11:16], p[17] + p[18] + p[19])
+pr
+```
+
+```{r}
+# number of combined classes
+kr = length(yr)
+
+# test statistic
+t0 = sum((yr - eyr)^2 /eyr)
+t0
+```
+
+```{r}
+# p-value
+pval = 1 - pchisq(t0, df = kr - 1 - 1)
+pval
+```
+
+Since the p-value is < 0.05, we reject the null hypothesis. The data are not consistent with a Poisson distribution.
+
+Unlike the journal article by Charles M. Farmer, the Australian road fatalities do not exhibit a Poisson distribution and thus a further investigation is required.
+
+# Data Limitations
+
+As with many dataset, this dataset by BITRE is not exempted from flaws and limitations. Such as the existence of missing values raises doubt for the autenticity of the data and we do not have the total number of cars on the road. This is crucial as even though the test may suggest an increase in speed limit may increase the fatalies however, the fatalities rate may actually decrease. 
+
+Let's say in 1989, there is 1 case of fatality for 100 cars and in 1990, there is a new policy of introducing a speed limit and has 2 cases of fatalities. Without any additional information, one may confidently claim that the rate of fatalities increases by 100% and that the introduction of speed limit is bad but an introduction of a new information, say that in 1990, the rate is actually 2 cases of fatalities for 500 cars. With this information, the probabilty of a fatal case actually decreases from 0.01 to 0.004 and the policy which was previously deemed terribly appear to be a success.  
+
+# References
+
+```{r}
+citation("ggplot2")
+citation("tidyverse")
+```
+
+@article{doi:10.1080/15389588.2016.1213821,
+author = {Charles M. Farmer},
+title = {Relationship of traffic fatality rates to maximum state speed limits},
+journal = {Traffic Injury Prevention},
+volume = {18},
+number = {4},
+pages = {375-380},
+year  = {2017},
+publisher = {Taylor & Francis},
+doi = {10.1080/15389588.2016.1213821},
+    note ={PMID: 27574856},
+
+URL = { 
+        https://doi.org/10.1080/15389588.2016.1213821
+    
+},
+eprint = { 
+        https://doi.org/10.1080/15389588.2016.1213821
+}
+
+@misc{citeulike:14629294,
+    author = {Bureau of Infrastructure, Transport},
+    citeulike-article-id = {14629294},
+    posted-at = {2018-08-26 08:36:03},
+    priority = {2},
+    title = {{Australian Road Death Database}}
+}
+
+@book{review2018hbr,
+  title={HBR Guide to Data Analytics Basics for Managers (HBR Guide Series)},
+  author={Review, H.B.},
+  isbn={9781633694293},
+  lccn={2017048270},
+  series={HBR Guide},
+  url={https://books.google.com.au/books?id=QjEtDwAAQBAJ},
+  year={2018},
+  publisher={Harvard Business Review Press}
+}
+
+
